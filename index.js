@@ -3,7 +3,6 @@ const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 
-// 读取配置文件
 const configPath = path.join(__dirname, "config.json");
 let config = {};
 try {
@@ -20,16 +19,13 @@ const nap_url = config.nap_url;
 async function main() {
   let ws;
 
-  // 连接 WebSocket 的函数
   function connectWebSocket() {
     ws = new WebSocket(nap_url);
 
-    // 打开连接时执行的回调
     ws.on("open", () => {
       console.log("WebSocket 连接已建立");
     });
 
-    // 接收到消息时执行的回调
     ws.on("message", async (data) => {
       const message = JSON.parse(data.toString());
       console.log(message);
@@ -42,22 +38,18 @@ async function main() {
       }
     });
 
-    // 错误时执行的回调
     ws.on("error", (error) => {
       console.error("WebSocket 错误:", error);
     });
 
-    // 连接关闭时执行的回调
     ws.on("close", () => {
       console.log("WebSocket 连接已关闭，30秒后重新连接...");
-      setTimeout(connectWebSocket, 30000); // 30秒后重新连接
+      setTimeout(connectWebSocket, 30000);
     });
   }
 
-  // 连接 WebSocket
   connectWebSocket();
 
-  // 从远程获取宠物数据
   const pet_data = (await get_pet_data()).petData;
 
   async function handle_pet_ins(message) {
