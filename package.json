@@ -1,0 +1,13 @@
+{
+  "scripts": {
+    "start": "pm2 start pm2.yaml",
+    "dev": "node-dev index.js"
+  },
+  "devDependencies": {
+    "node-dev": "^8.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.7.7",
+    "ws": "^8.18.0"
+  }
+}
