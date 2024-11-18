@@ -70,9 +70,10 @@ async function main() {
       return;
     }
     const text_params = texts
-      .map((e) => e.data.text)
+      .map((e) => e.data.text.trim())
       .join(" ")
-      .split(" ");
+      .split(" ")
+      .filter((e) => e && e !== "");
     const user_instruction = text_params.shift();
     const pet_item = pet_data.find(
       (e) => e.key === user_instruction || e.alias.includes(user_instruction)
