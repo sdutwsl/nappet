@@ -15,8 +15,11 @@ try {
 
 const pet_url = config.pet_url;
 const nap_url = config.nap_url;
+const debug_group = config.debug_group;
 
 async function main() {
+  const pet_data = (await get_pet_data()).petData;
+
   let ws;
 
   function connectWebSocket() {
@@ -28,6 +31,12 @@ async function main() {
 
     ws.on("message", async (data) => {
       const message = JSON.parse(data.toString());
+      if (
+        process.env.NODE_ENV === "development" &&
+        message.group_id !== debug_group
+      ) {
+        return;
+      }
       console.log(message);
       try {
         await handle_pet(message);
@@ -49,8 +58,6 @@ async function main() {
   }
 
   connectWebSocket();
-
-  const pet_data = (await get_pet_data()).petData;
 
   async function handle_pet_ins(message) {
     if (message.message_type !== "group") {
@@ -147,7 +154,13 @@ async function main() {
   }
 
   async function handle_pet_tickle(message) {
-    if (message.post_type !== "notice" && message.notice_type !== "notify") {
+    if (
+      !(
+        message.post_type === "notice" &&
+        message.notice_type === "notify" &&
+        message.sub_type === "poke"
+      )
+    ) {
       return;
     }
 
