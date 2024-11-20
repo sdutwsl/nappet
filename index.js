@@ -3,6 +3,8 @@ const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 
+let echo_id_pointer = 114514;
+
 const configPath = path.join(__dirname, "config.json");
 let config = {};
 try {
@@ -37,7 +39,7 @@ async function main() {
       ) {
         return;
       }
-      console.log(message);
+      
       try {
         await handle_pet(message);
         await handle_pet_ins(message);
@@ -59,13 +61,35 @@ async function main() {
 
   connectWebSocket();
 
+  function get_msg(message_id) {
+    return new Promise((res, rej) => {
+      setTimeout(() => rej(), 3000);
+      const echo_id = echo_id_pointer++;
+      const req = {
+        action: "get_msg",
+        params: {
+          message_id,
+        },
+        echo: echo_id,
+      };
+      const event_handler = (event) => {
+        const data = JSON.parse(event.data.toString());
+        if (data.echo === echo_id) {
+          res(data.data);
+          ws.removeEventListener("message", event_handler);
+        }
+      };
+      ws.addEventListener("message", event_handler);
+      ws.send(JSON.stringify(req));
+    });
+  }
+
   async function handle_pet_ins(message) {
     if (message.message_type !== "group") {
       return;
     }
     const message_segs = message.message;
     const texts = message_segs.filter((e) => e.type === "text");
-    const ats = message_segs.filter((e) => e.type === "at");
     if (texts.length === 0) {
       return;
     }
@@ -81,29 +105,56 @@ async function main() {
     if (!pet_item) {
       return;
     }
+    const ats = message_segs.filter((e) => e.type === "at");
+    const imgs = message_segs.filter((e) => e.type === "image");
+    const reps = message_segs.filter((e) => e.type === "reply");
+    let origin_msg_image_segs = [];
+    if (reps.length) {
+      try {
+        const origin_msg = await get_msg(reps[0].data.id);
+        origin_msg_image_segs = origin_msg.message
+          .filter((e) => e.type === "image")
+          .map((e) => e.data.url);
+      } catch (e) {
+        console.error("reply timeout");
+      }
+    }
     const instruction = pet_item.key;
-
+    const images = [...origin_msg_image_segs, ...imgs.map((e) => e.data.url)];
+    // return ;
     //key
     const pet_params = { key: instruction };
-    //from avatar, from message sender
-    pet_params.from_avatar = format_qq_avatar(message.sender.user_id);
-    //to avatar, first at
-    if (ats.length) {
-      const to = ats.shift();
-      pet_params.to_avatar = format_qq_avatar(to.data.qq);
+    //is a image message?
+    if (images.length) {
+      if (images.length === 1) {
+        const image = images.shift();
+        pet_params.from_avatar = image;
+        pet_params.to_avatar = image;
+      } else {
+        pet_params.from_avatar = images.shift();
+        pet_params.to_avatar = images.shift();
+      }
     } else {
-      //or same as sender
-      pet_params.to_avatar = format_qq_avatar(message.sender.user_id);
+      //from avatar, from message sender
+      pet_params.from_avatar = format_qq_avatar(message.sender.user_id);
+      //to avatar, first at
+      if (ats.length) {
+        const to = ats.shift();
+        pet_params.to_avatar = format_qq_avatar(to.data.qq);
+      } else {
+        //or same as sender
+        pet_params.to_avatar = format_qq_avatar(message.sender.user_id);
+      }
     }
     //group avatar, none
     //bot avatar, message's self_id
     pet_params.bot_avatar = format_qq_avatar(message.self_id);
+    // const ats_images = ats.map((e) => format_qq_avatar(e.data.qq));
+    // const other_images = [...ats_images, ...images];
     //ramdom avatar, if there are more user mentions, use them, or undefined
-    if (ats.length) {
-      pet_params.random_avatar_list = ats
-        .map((e) => format_qq_avatar(e.data.qq))
-        .join(",");
-    }
+    // if (other_images.length) {
+    //   pet_params.random_avatar_list = other_images.join(",");
+    // }
     //from_name, none
     //to_name, none
     //group_name, none
